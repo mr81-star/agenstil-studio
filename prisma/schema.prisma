@@ -1,0 +1,394 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== USER & AUTH ==============
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  name      String?
+  avatar    String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  workspaces   Workspace[]
+  agents       Agent[]
+  notifications Notification[]
+  libraryItems  LibraryItem[]
+
+  @@map("users")
+}
+
+// ============== WORKSPACE & PLANS ==============
+model Workspace {
+  id        String     @id @default(cuid())
+  name      String
+  userId    String
+  planId    String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      Plan       @relation(fields: [planId], references: [id])
+  projects  Project[]
+
+  @@unique([userId, name])
+  @@map("workspaces")
+}
+
+model Plan {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  capabilities Json       // {"photoshoot": true, "ads": true, ...}
+  features     String[]   // ["agent1", "agent2", "agent3", "live_watcher"]
+  maxProjects  Int        @default(10)
+  maxStorage   BigInt     @default(10737418240) // 10GB
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  workspaces   Workspace[]
+
+  @@map("plans")
+}
+
+// ============== PROJECTS ==============
+model Project {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  workspaceId String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  brand        Brand?
+  website      Website?
+  products     Product[]
+  services     Service[]
+  collections  Collection[]
+  generations  Generation[]
+  assets       Asset[]
+  changeEvents ChangeEvent[]
+
+  @@unique([workspaceId, name])
+  @@map("projects")
+}
+
+// ============== BRAND ==============
+model Brand {
+  id              String     @id @default(cuid())
+  projectId       String     @unique
+  name            String
+  niche           String?
+  industry        String?
+  audience        String?
+  colors          String[]   // ["#FF0000", "#00FF00"]
+  fonts           String[]   // ["Arial", "Helvetica"]
+  tone            String?    // "luxury", "casual", "professional"
+  description     String?
+  logoUrl         String?
+  analysis        Json?      // Full brand analysis data
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("brands")
+}
+
+// ============== WEBSITE ==============
+model Website {
+  id          String     @id @default(cuid())
+  projectId   String     @unique
+  url         String
+  analysis    Json?      // {"colors": [], "fonts": [], "products": [], ...}
+  screenshots String[]   // ["url1", "url2"] desktop & mobile
+  crawledAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("websites")
+}
+
+// ============== PRODUCTS ==============
+model Product {
+  id          String     @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  price       Float?
+  currency    String     @default("USD")
+  images      String[]   // ["url1", "url2"]
+  sku         String?
+  category    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("products")
+}
+
+// ============== SERVICES ==============
+model Service {
+  id          String     @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  price       Float?
+  currency    String     @default("USD")
+  duration    String?    // "1 hour", "1 day"
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("services")
+}
+
+// ============== COLLECTIONS ==============
+model Collection {
+  id          String     @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  items       String[]   // Product/Service IDs
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("collections")
+}
+
+// ============== GENERATIONS ==============
+model Generation {
+  id              String     @id @default(cuid())
+  projectId       String
+  type            String     // "PHOTOSHOOT_REDESIGN", "ADVERTISEMENT", "ANIMATED_AD", etc.
+  status          String     @default("QUEUED") // QUEUED, RUNNING, COMPLETED, FAILED, WAITING_FOR_PROVIDER
+  provider        String?    // "ollama", "comfyui", "groq", "tensor.art"
+  model           String?    // "llama3.1:8b", "SDXL", etc.
+  prompt          String?
+  resultUrl       String?    // URL to generated asset
+  metadata        Json?      // {seed, settings, parentGenerationId, sourceAssetIds, duration, dimensions}
+  progress        Int        @default(0) // 0-100
+  error           String?
+  jobId           String?    // BullMQ job ID
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions        GenerationVersion[]
+  parentGeneration Generation?        @relation("GenerationVersions", fields: [parentGenerationId], references: [id])
+  parentGenerationId String?
+  childGenerations Generation[]       @relation("GenerationVersions")
+
+  @@index([projectId])
+  @@index([status])
+  @@index([type])
+  @@map("generations")
+}
+
+model GenerationVersion {
+  id              String     @id @default(cuid())
+  generationId    String
+  parentGenerationId String?
+  changes         Json?      // What changed from parent
+  createdAt       DateTime   @default(now())
+
+  generation      Generation @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
+  @@map("generation_versions")
+}
+
+// ============== ASSETS ==============
+model Asset {
+  id          String     @id @default(cuid())
+  projectId   String
+  type        String     // "IMAGE", "VIDEO", "AUDIO", "WEBSITE", "MERGED_VIDEO"
+  url         String
+  size        BigInt?    // File size in bytes
+  duration    Int?       // Duration in seconds (for videos/audio)
+  dimensions  String?    // "1920x1080" (for images/videos)
+  tags        String[]   // ["product", "luxury", "photoshoot"]
+  metadata    Json?      // Custom metadata
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  libraryItems LibraryItem[]
+
+  @@index([projectId])
+  @@index([type])
+  @@map("assets")
+}
+
+// ============== AGENTS & CONVERSATIONS ==============
+model Agent {
+  id          String     @id @default(cuid())
+  userId      String
+  name        String     // "Personal Assistant", "Regeneration Agent", "Memory Agent"
+  type        String     // "PERSONAL_ASSISTANT", "REGENERATION", "MEMORY"
+  description String?
+  memory      Json?      // Agent memory/context
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@map("agents")
+}
+
+model Conversation {
+  id        String     @id @default(cuid())
+  agentId   String
+  title     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  agent     Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([agentId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String     @id @default(cuid())
+  conversationId String
+  role           String     // "user", "assistant"
+  content        String
+  metadata       Json?
+  createdAt      DateTime   @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// ============== PROVIDER SYSTEM ==============
+model Provider {
+  id          String     @id @default(cuid())
+  name        String     @unique // "ollama", "comfyui", "groq", "tensor.art"
+  capability  String     // "TEXT_LLM", "IMAGE", "VIDEO", "AVATAR", "TTS", "STT"
+  status      String     @default("AVAILABLE") // AVAILABLE, UNAVAILABLE, ERROR
+  priority    Int        @default(0) // Lower = higher priority
+  baseUrl     String?
+  apiKey      String?
+  config      Json?
+  lastHealthCheck DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([capability, priority])
+  @@map("providers")
+}
+
+model Tool {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  capability  String     // What it does
+  description String?
+  schema      Json       // Input/output schema
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("tools")
+}
+
+// ============== LIBRARY ==============
+model LibraryItem {
+  id        String     @id @default(cuid())
+  userId    String
+  assetId   String
+  type      String     // "PHOTOSHOOT", "AD", "ANIMATED_AD", "AVATAR_VIDEO", etc.
+  category  String?    // "photoshoots", "ads", "animations"
+  tags      String[]
+  favorite  Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset     Asset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, assetId])
+  @@index([userId])
+  @@index([type])
+  @@map("library_items")
+}
+
+// ============== CHANGE DETECTION ==============
+model ChangeEvent {
+  id          String     @id @default(cuid())
+  projectId   String
+  type        String     // "NEW_PRODUCT", "PRICE_CHANGE", "NEW_COLLECTION", "WEBSITE_UPDATE"
+  description String
+  data        Json?      // Event details
+  processed   Boolean    @default(false)
+  detectedAt  DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([processed])
+  @@map("change_events")
+}
+
+// ============== NOTIFICATIONS ==============
+model Notification {
+  id        String     @id @default(cuid())
+  userId    String
+  type      String     // "GENERATION_COMPLETE", "CHANGE_DETECTED", "REMINDER"
+  title     String
+  message   String
+  data      Json?
+  read      Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  readAt    DateTime?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+// ============== TASKS & REMINDERS ==============
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      String     @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("tasks")
+}
+
+model Reminder {
+  id          String     @id @default(cuid())
+  agentId     String
+  message     String
+  scheduledFor DateTime
+  sent        Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+
+  @@map("reminders")
+}
