@@ -1,0 +1,70 @@
+// src/styles/globals.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 3%;
+  --foreground: 0 0% 98%;
+  --primary: 280 85% 54%;
+  --primary-foreground: 280 100% 98%;
+  --secondary: 217 91% 60%;
+  --secondary-foreground: 217 100% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --muted: 217 14% 37%;
+  --muted-foreground: 217 8% 78%;
+  --accent: 280 85% 54%;
+  --accent-foreground: 280 100% 98%;
+  --popover: 0 0% 3%;
+  --popover-foreground: 0 0% 98%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 98%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 0 0% 3%;
+  --foreground: 0 0% 98%;
+  --primary: 280 85% 54%;
+  --primary-foreground: 280 100% 98%;
+  --secondary: 217 91% 60%;
+  --secondary-foreground: 217 100% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --muted: 217 14% 37%;
+  --muted-foreground: 217 8% 78%;
+  --accent: 280 85% 54%;
+  --accent-foreground: 280 100% 98%;
+  --popover: 0 0% 3%;
+  --popover-foreground: 0 0% 98%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 98%;
+  --radius: 0.5rem;
+}
+
+.light {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3%;
+  --primary: 280 85% 54%;
+  --primary-foreground: 280 100% 98%;
+  --secondary: 217 91% 60%;
+  --secondary-foreground: 217 100% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --muted: 217 14% 37%;
+  --muted-foreground: 217 9% 60%;
+  --accent: 280 85% 54%;
+  --accent-foreground: 280 100% 98%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 3%;
+  --card: 0 0% 95%;
+  --card-foreground: 0 0% 3%;
+  --radius: 0.5rem;
+}
+
+body {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-feature-settings: 'rounding-mode' 0;
+}
